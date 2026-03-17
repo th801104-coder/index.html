@@ -17,7 +17,6 @@
       --text: #f4f7fb;
       --muted: #b9c2cf;
       --line: rgba(255, 255, 255, 0.08);
-      --hit: #ffd166;
       --steel1: #d9e2ec;
       --steel2: #7d8da3;
       --gold1: #f5d16b;
@@ -36,30 +35,33 @@
     html, body {
       margin: 0;
       width: 100%;
-      min-height: 100%;
+      height: 100%;
+      overflow: hidden;
       background: linear-gradient(180deg, var(--bg1), var(--bg2));
       color: var(--text);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
 
     body {
-      overflow: hidden;
-    }
-
-    .app {
-      min-height: 100vh;
       display: flex;
       flex-direction: column;
     }
 
+    .app {
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
     .topbar {
-      position: sticky;
-      top: 0;
+      flex: 0 0 auto;
+      position: relative;
       z-index: 20;
       background: var(--panel);
       backdrop-filter: blur(8px);
       border-bottom: 1px solid var(--line);
-      padding: 10px 10px 8px;
+      padding: 8px 10px 6px;
     }
 
     .top-row {
@@ -91,21 +93,39 @@
       font-size: 12px;
       text-align: center;
       color: var(--muted);
-      min-height: 18px;
+      min-height: 16px;
     }
 
     .stage {
-      flex: 1;
+      flex: 1 1 auto;
       position: relative;
-      overflow: auto;
-      padding: 12px 12px 20px;
+      overflow: hidden;
+      padding: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .kit-viewport {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .kit-scale {
+      position: relative;
+      transform-origin: center center;
+      will-change: transform;
     }
 
     .kit {
       position: relative;
-      min-width: 980px;
-      min-height: 560px;
-      margin: 0 auto;
+      width: 980px;
+      height: 560px;
     }
 
     .pad {
@@ -261,8 +281,9 @@
     }
 
     .footer {
+      flex: 0 0 auto;
       border-top: 1px solid var(--line);
-      padding: 8px 10px calc(10px + env(safe-area-inset-bottom));
+      padding: 6px 10px calc(8px + env(safe-area-inset-bottom));
       text-align: center;
       color: var(--muted);
       font-size: 11px;
@@ -271,7 +292,7 @@
 
     .ghost {
       position: absolute;
-      inset: auto 0 20px 0;
+      inset: auto 0 16px 0;
       margin: 0 auto;
       width: 340px;
       height: 120px;
@@ -281,9 +302,21 @@
       pointer-events: none;
     }
 
-    @media (max-height: 560px) {
-      .kit {
-        min-height: 470px;
+    @media (max-height: 520px) {
+      .mode-btn,
+      .ctrl-btn {
+        padding: 8px 12px;
+        font-size: 13px;
+      }
+
+      .status {
+        font-size: 11px;
+      }
+
+      .footer {
+        font-size: 10px;
+        padding-top: 4px;
+        padding-bottom: calc(6px + env(safe-area-inset-bottom));
       }
     }
   </style>
@@ -303,9 +336,13 @@
       </div>
     </div>
 
-    <div class="stage">
-      <div class="kit" id="kit">
-        <div class="ghost"></div>
+    <div class="stage" id="stage">
+      <div class="kit-viewport">
+        <div class="kit-scale" id="kitScale">
+          <div class="kit" id="kit">
+            <div class="ghost"></div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -316,18 +353,23 @@
 
   <script>
     (() => {
+      const BASE_W = 980;
+      const BASE_H = 560;
+
       const padDefs = [
-        { id: "hihat",  label: "ハイハット",     sub: "Hi-Hat",    type: "cymbal", x: 2,  y: 170, w: 140, h: 180 },
-        { id: "snare",  label: "スネア",         sub: "Snare",     type: "drum",   x: 145,y: 270, w: 145, h: 180 },
-        { id: "crash1", label: "クラッシュ1",    sub: "Crash 1",   type: "cymbal", x: 120,y: 40,  w: 170, h: 180 },
-        { id: "tom1",   label: "タム1",          sub: "Tom 1",     type: "drum",   x: 320,y: 170, w: 140, h: 170 },
-        { id: "tom2",   label: "タム2",          sub: "Tom 2",     type: "drum",   x: 470,y: 190, w: 150, h: 180 },
-        { id: "crash2", label: "クラッシュ2",    sub: "Crash 2",   type: "cymbal", x: 500,y: 40,  w: 170, h: 180 },
-        { id: "ride",   label: "ライド",         sub: "Ride",      type: "cymbal", x: 700,y: 110, w: 180, h: 190 },
-        { id: "floor",  label: "フロアタム",     sub: "Floor Tom", type: "drum",   x: 710,y: 280, w: 170, h: 195 }
+        { id: "hihat",  label: "ハイハット",  sub: "Hi-Hat",    type: "cymbal", x: 2,   y: 170, w: 140, h: 180 },
+        { id: "snare",  label: "スネア",      sub: "Snare",     type: "drum",   x: 145, y: 270, w: 145, h: 180 },
+        { id: "crash1", label: "クラッシュ1", sub: "Crash 1",   type: "cymbal", x: 120, y: 40,  w: 170, h: 180 },
+        { id: "tom1",   label: "タム1",       sub: "Tom 1",     type: "drum",   x: 320, y: 170, w: 140, h: 170 },
+        { id: "tom2",   label: "タム2",       sub: "Tom 2",     type: "drum",   x: 470, y: 190, w: 150, h: 180 },
+        { id: "crash2", label: "クラッシュ2", sub: "Crash 2",   type: "cymbal", x: 500, y: 40,  w: 170, h: 180 },
+        { id: "ride",   label: "ライド",      sub: "Ride",      type: "cymbal", x: 700, y: 110, w: 180, h: 190 },
+        { id: "floor",  label: "フロアタム",  sub: "Floor Tom", type: "drum",   x: 710, y: 280, w: 170, h: 195 }
       ];
 
       const kit = document.getElementById("kit");
+      const stage = document.getElementById("stage");
+      const kitScale = document.getElementById("kitScale");
       const statusEl = document.getElementById("status");
       const stopBtn = document.getElementById("stopBtn");
       const modeBtns = [...document.querySelectorAll(".mode-btn")];
@@ -347,6 +389,17 @@
 
       function setStatus(msg) {
         statusEl.textContent = msg;
+      }
+
+      function resizeKit() {
+        const stageRect = stage.getBoundingClientRect();
+        const scaleX = stageRect.width / BASE_W;
+        const scaleY = stageRect.height / BASE_H;
+        const scale = Math.min(scaleX, scaleY);
+
+        kitScale.style.width = `${BASE_W}px`;
+        kitScale.style.height = `${BASE_H}px`;
+        kitScale.style.transform = `scale(${scale})`;
       }
 
       function buildPads() {
@@ -483,7 +536,7 @@
             break;
 
           case "snare":
-            playOsc(t ? 190 : 190, "triangle", t, 0.001, 0.10, 0.18, 110);
+            playOsc(190, "triangle", t, 0.001, 0.10, 0.18, 110);
             playNoiseBandpass(t, 1800, 1.2, 0.5, 0.001, 0.12);
             break;
 
@@ -681,7 +734,13 @@
         unlockAudio();
       }, { once: true });
 
+      window.addEventListener("resize", resizeKit);
+      window.addEventListener("orientationchange", () => {
+        setTimeout(resizeKit, 200);
+      });
+
       buildPads();
+      resizeKit();
     })();
   </script>
 </body>
