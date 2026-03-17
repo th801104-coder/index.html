@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+  />
+  <title>Drum Tap Game</title>
+  <style>
+    :root {
+      --bg1: #0b1020;
+      --bg2: #121a2f;
+      --panel: rgba(14, 21, 37, 0.92);
+      --btn: #243652;
+      --btn-active: #2f5f9a;
+      --text: #f4f7fb;
+      --muted: #b9c2cf;
+      --line: rgba(255, 255, 255, 0.08);
+      --hit: #ffd166;
+      --steel1: #d9e2ec;
+      --steel2: #7d8da3;
+      --gold1: #f5d16b;
+      --gold2: #b57f1d;
+      --drum1: #59728f;
+      --drum2: #2b3d54;
+      --drum3: #172333;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    html, body {
+      margin: 0;
+      width: 100%;
+      min-height: 100%;
+      background: linear-gradient(180deg, var(--bg1), var(--bg2));
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    body {
+      overflow: hidden;
+    }
+
+    .app {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      background: var(--panel);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--line);
+      padding: 10px 10px 8px;
+    }
+
+    .top-row {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .mode-btn,
+    .ctrl-btn {
+      border: none;
+      border-radius: 14px;
+      padding: 10px 14px;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+      background: var(--btn);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
+    }
+
+    .mode-btn.active {
+      background: var(--btn-active);
+      outline: 2px solid rgba(119, 200, 255, 0.9);
+    }
+
+    .status {
+      margin-top: 8px;
+      font-size: 12px;
+      text-align: center;
+      color: var(--muted);
+      min-height: 18px;
+    }
+
+    .stage {
+      flex: 1;
+      position: relative;
+      overflow: auto;
+      padding: 12px 12px 20px;
+    }
+
+    .kit {
+      position: relative;
+      min-width: 980px;
+      min-height: 560px;
+      margin: 0 auto;
+    }
+
+    .pad {
+      position: absolute;
+      border: none;
+      background: transparent;
+      padding: 0;
+      touch-action: none;
+    }
+
+    .shape {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,.14),
+        0 8px 20px rgba(0,0,0,.22);
+      transition: transform .05s ease, filter .05s ease, box-shadow .05s ease;
+    }
+
+    .cymbal .shape {
+      width: 100%;
+      height: 36%;
+      top: 0;
+      border-radius: 999px;
+      background:
+        radial-gradient(circle at 50% 38%, rgba(255,255,255,.28), rgba(255,255,255,0) 30%),
+        linear-gradient(180deg, var(--gold1), var(--gold2));
+      border: 2px solid rgba(255, 245, 205, 0.35);
+    }
+
+    .cymbal .shape::after {
+      content: "";
+      position: absolute;
+      inset: 14% 8%;
+      border-radius: 999px;
+      border: 2px solid rgba(255,255,255,.10);
+    }
+
+    .drum .shape {
+      width: 84%;
+      aspect-ratio: 1 / 1;
+      top: 0;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle at 50% 38%, var(--drum1) 0%, #455d78 30%, var(--drum2) 66%, var(--drum3) 100%);
+      border: 3px solid rgba(255,255,255,.08);
+    }
+
+    .drum .shape::after {
+      content: "";
+      position: absolute;
+      inset: 10%;
+      border-radius: 50%;
+      border: 2px solid rgba(255,255,255,.08);
+    }
+
+    .stand {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      background: linear-gradient(180deg, var(--steel1), var(--steel2));
+      border-radius: 999px;
+      opacity: 0.9;
+    }
+
+    .cymbal .stand {
+      top: 28%;
+      width: 6px;
+      height: 46%;
+    }
+
+    .drum .stand {
+      top: 62%;
+      width: 6px;
+      height: 20%;
+    }
+
+    .legs {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    .legs::before,
+    .legs::after,
+    .legs span {
+      content: "";
+      position: absolute;
+      bottom: 0;
+      width: 4px;
+      background: linear-gradient(180deg, var(--steel1), var(--steel2));
+      border-radius: 999px;
+    }
+
+    .cymbal .legs {
+      top: 70%;
+      width: 72%;
+      height: 16%;
+    }
+
+    .drum .legs {
+      top: 79%;
+      width: 56%;
+      height: 12%;
+    }
+
+    .legs::before {
+      left: 18%;
+      height: 100%;
+      transform: rotate(18deg);
+    }
+
+    .legs::after {
+      right: 18%;
+      height: 100%;
+      transform: rotate(-18deg);
+    }
+
+    .legs span {
+      left: 50%;
+      transform: translateX(-50%);
+      height: 100%;
+    }
+
+    .pad-label {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 800;
+      line-height: 1.2;
+      text-shadow: 0 1px 2px rgba(0,0,0,.45);
+    }
+
+    .pad-label small {
+      display: block;
+      margin-top: 3px;
+      font-size: 10px;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .pad.hit .shape {
+      transform: translateX(-50%) scale(0.96);
+      filter: brightness(1.16);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,.14),
+        0 0 0 4px rgba(255,209,102,.45),
+        0 8px 20px rgba(0,0,0,.22);
+    }
+
+    .footer {
+      border-top: 1px solid var(--line);
+      padding: 8px 10px calc(10px + env(safe-area-inset-bottom));
+      text-align: center;
+      color: var(--muted);
+      font-size: 11px;
+      background: rgba(10, 14, 24, 0.75);
+    }
+
+    .ghost {
+      position: absolute;
+      inset: auto 0 20px 0;
+      margin: 0 auto;
+      width: 340px;
+      height: 120px;
+      border-radius: 999px;
+      filter: blur(16px);
+      background: rgba(0,0,0,.18);
+      pointer-events: none;
+    }
+
+    @media (max-height: 560px) {
+      .kit {
+        min-height: 470px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="topbar">
+      <div class="top-row">
+        <button class="mode-btn" data-mode="rock">ロック</button>
+        <button class="mode-btn" data-mode="pop">ポップ</button>
+        <button class="mode-btn" data-mode="blues">ブルース</button>
+        <button class="mode-btn" data-mode="ballad">バラード</button>
+        <button class="ctrl-btn" id="stopBtn">停止</button>
+      </div>
+      <div class="status" id="status">
+        横向き推奨。最初に1回タップすると音が有効になります。
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="kit" id="kit">
+        <div class="ghost"></div>
+      </div>
+    </div>
+
+    <div class="footer">
+      ドラマー目線 / バスドラムなし / 最大2音同時 / デモ音源付き
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      const padDefs = [
+        { id: "hihat",  label: "ハイハット",     sub: "Hi-Hat",    type: "cymbal", x: 2,  y: 170, w: 140, h: 180 },
+        { id: "snare",  label: "スネア",         sub: "Snare",     type: "drum",   x: 145,y: 270, w: 145, h: 180 },
+        { id: "crash1", label: "クラッシュ1",    sub: "Crash 1",   type: "cymbal", x: 120,y: 40,  w: 170, h: 180 },
+        { id: "tom1",   label: "タム1",          sub: "Tom 1",     type: "drum",   x: 320,y: 170, w: 140, h: 170 },
+        { id: "tom2",   label: "タム2",          sub: "Tom 2",     type: "drum",   x: 470,y: 190, w: 150, h: 180 },
+        { id: "crash2", label: "クラッシュ2",    sub: "Crash 2",   type: "cymbal", x: 500,y: 40,  w: 170, h: 180 },
+        { id: "ride",   label: "ライド",         sub: "Ride",      type: "cymbal", x: 700,y: 110, w: 180, h: 190 },
+        { id: "floor",  label: "フロアタム",     sub: "Floor Tom", type: "drum",   x: 710,y: 280, w: 170, h: 195 }
+      ];
+
+      const kit = document.getElementById("kit");
+      const statusEl = document.getElementById("status");
+      const stopBtn = document.getElementById("stopBtn");
+      const modeBtns = [...document.querySelectorAll(".mode-btn")];
+
+      let audioReady = false;
+      let ctx = null;
+      let compressor = null;
+      let master = null;
+      let whiteNoise = null;
+
+      let currentDemo = null;
+      let demoTimer = null;
+      let demoStep = 0;
+
+      const pointerMap = new Map();
+      const activePads = new Set();
+
+      function setStatus(msg) {
+        statusEl.textContent = msg;
+      }
+
+      function buildPads() {
+        for (const def of padDefs) {
+          const btn = document.createElement("button");
+          btn.className = `pad ${def.type}`;
+          btn.dataset.pad = def.id;
+          btn.style.left = `${def.x}px`;
+          btn.style.top = `${def.y}px`;
+          btn.style.width = `${def.w}px`;
+          btn.style.height = `${def.h}px`;
+          btn.innerHTML = `
+            <div class="shape"></div>
+            <div class="stand"></div>
+            <div class="legs"><span></span></div>
+            <div class="pad-label">${def.label}<small>${def.sub}</small></div>
+          `;
+          btn.addEventListener("pointerdown", onPadDown, { passive: false });
+          btn.addEventListener("pointerup", onPadUp, { passive: false });
+          btn.addEventListener("pointercancel", onPadUp, { passive: false });
+          kit.appendChild(btn);
+        }
+      }
+
+      function initAudio() {
+        if (audioReady) return true;
+
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) {
+          setStatus("このブラウザは音声に対応していません。");
+          return false;
+        }
+
+        try {
+          ctx = new AudioContextClass();
+
+          master = ctx.createGain();
+          master.gain.value = 0.88;
+
+          compressor = ctx.createDynamicsCompressor();
+          compressor.threshold.value = -20;
+          compressor.knee.value = 20;
+          compressor.ratio.value = 8;
+          compressor.attack.value = 0.003;
+          compressor.release.value = 0.12;
+
+          compressor.connect(master);
+          master.connect(ctx.destination);
+
+          const length = Math.floor(ctx.sampleRate * 0.6);
+          whiteNoise = ctx.createBuffer(1, length, ctx.sampleRate);
+          const data = whiteNoise.getChannelData(0);
+          for (let i = 0; i < length; i++) {
+            data[i] = Math.random() * 2 - 1;
+          }
+
+          audioReady = true;
+          return true;
+        } catch (e) {
+          console.error(e);
+          setStatus("音声初期化に失敗しました。");
+          return false;
+        }
+      }
+
+      async function unlockAudio() {
+        if (!initAudio()) return false;
+        try {
+          if (ctx.state !== "running") {
+            await ctx.resume();
+          }
+          setStatus("音が有効になりました。デモ再生かパッドタップで演奏できます。");
+          return true;
+        } catch (e) {
+          console.error(e);
+          setStatus("音を有効化できませんでした。");
+          return false;
+        }
+      }
+
+      function makeEnv(time, attack, decay, peak) {
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.0001, time);
+        g.gain.exponentialRampToValueAtTime(peak, time + attack);
+        g.gain.exponentialRampToValueAtTime(0.0001, time + attack + decay);
+        return g;
+      }
+
+      function playNoiseBandpass(time, freq, q, gainAmount, attack, decay) {
+        const src = ctx.createBufferSource();
+        src.buffer = whiteNoise;
+
+        const filter = ctx.createBiquadFilter();
+        filter.type = "bandpass";
+        filter.frequency.value = freq;
+        filter.Q.value = q;
+
+        const gain = makeEnv(time, attack, decay, gainAmount);
+        src.connect(filter).connect(gain).connect(compressor);
+        src.start(time);
+        src.stop(time + attack + decay + 0.05);
+      }
+
+      function playOsc(freq, type, time, attack, decay, gainAmount, endFreq) {
+        const osc = ctx.createOscillator();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, time);
+        if (endFreq) {
+          osc.frequency.exponentialRampToValueAtTime(endFreq, time + attack + decay);
+        }
+
+        const gain = makeEnv(time, attack, decay, gainAmount);
+        osc.connect(gain).connect(compressor);
+        osc.start(time);
+        osc.stop(time + attack + decay + 0.05);
+      }
+
+      function pulsePad(id) {
+        const el = document.querySelector(`[data-pad="${id}"]`);
+        if (!el) return;
+        el.classList.add("hit");
+        clearTimeout(el._hitTimer);
+        el._hitTimer = setTimeout(() => el.classList.remove("hit"), 80);
+      }
+
+      function playPad(id, when = null) {
+        if (!audioReady || !ctx) return;
+        const t = when ?? (ctx.currentTime + 0.001);
+
+        switch (id) {
+          case "hihat":
+            playNoiseBandpass(t, 9000, 3.5, 0.35, 0.001, 0.045);
+            playNoiseBandpass(t, 12000, 2.0, 0.15, 0.001, 0.03);
+            break;
+
+          case "snare":
+            playOsc(t ? 190 : 190, "triangle", t, 0.001, 0.10, 0.18, 110);
+            playNoiseBandpass(t, 1800, 1.2, 0.5, 0.001, 0.12);
+            break;
+
+          case "crash1":
+          case "crash2":
+            playNoiseBandpass(t, 5000, 1.0, 0.45, 0.001, 0.9);
+            playNoiseBandpass(t, 9000, 0.8, 0.28, 0.001, 1.1);
+            break;
+
+          case "ride":
+            playNoiseBandpass(t, 7000, 2.1, 0.22, 0.001, 0.45);
+            playOsc(1200, "triangle", t, 0.001, 0.16, 0.03, 800);
+            break;
+
+          case "tom1":
+            playOsc(220, "sine", t, 0.001, 0.22, 0.30, 130);
+            break;
+
+          case "tom2":
+            playOsc(160, "sine", t, 0.001, 0.24, 0.32, 95);
+            break;
+
+          case "floor":
+            playOsc(110, "sine", t, 0.001, 0.28, 0.38, 65);
+            break;
+        }
+
+        pulsePad(id);
+      }
+
+      async function onPadDown(e) {
+        e.preventDefault();
+
+        const ok = await unlockAudio();
+        if (!ok) return;
+
+        const padId = e.currentTarget.dataset.pad;
+
+        if (activePads.size >= 2 && !activePads.has(padId)) {
+          return;
+        }
+
+        activePads.add(padId);
+        pointerMap.set(e.pointerId, padId);
+        playPad(padId);
+      }
+
+      function onPadUp(e) {
+        e.preventDefault();
+        const padId = pointerMap.get(e.pointerId);
+        if (!padId) return;
+        pointerMap.delete(e.pointerId);
+        activePads.delete(padId);
+      }
+
+      const demoPatterns = {
+        rock: {
+          bpm: 116,
+          loop: 16,
+          steps: {
+            0: ["crash1", "hihat"],
+            1: ["hihat"],
+            2: ["snare", "hihat"],
+            3: ["hihat"],
+            4: ["crash2", "hihat"],
+            5: ["hihat"],
+            6: ["snare", "hihat"],
+            7: ["hihat"],
+            8: ["ride", "tom1"],
+            9: ["ride"],
+            10: ["snare", "ride"],
+            11: ["ride"],
+            12: ["crash1", "tom2"],
+            13: ["ride"],
+            14: ["snare", "ride"],
+            15: ["floor"]
+          }
+        },
+        pop: {
+          bpm: 102,
+          loop: 16,
+          steps: {
+            0: ["hihat"],
+            1: ["hihat"],
+            2: ["snare", "hihat"],
+            3: ["hihat"],
+            4: ["crash1", "hihat"],
+            5: ["hihat"],
+            6: ["snare", "hihat"],
+            7: ["hihat"],
+            8: ["ride"],
+            9: ["ride"],
+            10: ["snare", "ride"],
+            11: ["ride"],
+            12: ["crash2", "hihat"],
+            13: ["hihat"],
+            14: ["snare", "hihat"],
+            15: ["tom1"]
+          }
+        },
+        blues: {
+          bpm: 86,
+          loop: 12,
+          steps: {
+            0: ["ride"],
+            1: ["snare"],
+            2: ["ride"],
+            3: ["tom1"],
+            4: ["ride"],
+            5: ["snare"],
+            6: ["crash1", "ride"],
+            7: ["tom2"],
+            8: ["ride"],
+            9: ["snare"],
+            10: ["ride"],
+            11: ["floor"]
+          }
+        },
+        ballad: {
+          bpm: 72,
+          loop: 16,
+          steps: {
+            0: ["crash1"],
+            1: [],
+            2: ["snare"],
+            3: ["ride"],
+            4: ["ride"],
+            5: [],
+            6: ["snare"],
+            7: ["ride"],
+            8: ["crash2"],
+            9: ["ride"],
+            10: ["snare"],
+            11: ["ride"],
+            12: ["tom1"],
+            13: ["ride"],
+            14: ["snare"],
+            15: ["floor"]
+          }
+        }
+      };
+
+      function modeLabel(mode) {
+        return {
+          rock: "ロック",
+          pop: "ポップ",
+          blues: "ブルース",
+          ballad: "バラード"
+        }[mode] || mode;
+      }
+
+      function stopDemo() {
+        if (demoTimer) clearTimeout(demoTimer);
+        demoTimer = null;
+        currentDemo = null;
+        demoStep = 0;
+        modeBtns.forEach(btn => btn.classList.remove("active"));
+        setStatus("デモ停止中。好きなパッドをタップして演奏できます。");
+      }
+
+      function tickDemo() {
+        if (!currentDemo || !audioReady) return;
+
+        const def = demoPatterns[currentDemo];
+        const stepDuration = (60 / def.bpm) / 2;
+        const notes = def.steps[demoStep] || [];
+        const t = ctx.currentTime + 0.01;
+
+        notes.slice(0, 2).forEach(id => playPad(id, t));
+
+        setStatus(`デモ再生中: ${modeLabel(currentDemo)} / BPM ${def.bpm}`);
+        demoStep = (demoStep + 1) % def.loop;
+        demoTimer = setTimeout(tickDemo, stepDuration * 1000);
+      }
+
+      async function startDemo(mode) {
+        const ok = await unlockAudio();
+        if (!ok) return;
+
+        stopDemo();
+        currentDemo = mode;
+        modeBtns.forEach(btn => {
+          btn.classList.toggle("active", btn.dataset.mode === mode);
+        });
+        tickDemo();
+      }
+
+      modeBtns.forEach(btn => {
+        btn.addEventListener("click", () => startDemo(btn.dataset.mode));
+      });
+
+      stopBtn.addEventListener("click", stopDemo);
+
+      document.body.addEventListener("pointerdown", () => {
+        unlockAudio();
+      }, { once: true });
+
+      buildPads();
+    })();
+  </script>
+</body>
+</html>
